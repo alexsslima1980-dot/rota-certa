@@ -19,7 +19,7 @@ nav button{background:#fff;color:#1267c9;border:1px solid #ccd8e8}
 input,textarea,select{width:100%;padding:13px;margin:6px 0;border:1px solid #ccd4df;border-radius:11px;font-size:15px;background:#fff}
 .hidden{display:none!important}.ok{background:#edf8ef;padding:11px;border-radius:11px}.err{background:#fff1f0;color:#b42318;padding:11px;border-radius:11px}
 .small{font-size:13px;color:#667085}.muted{color:#667085}
-#map{height:52vh;min-height:330px;border-radius:16px;overflow:hidden}
+#map{width:100%;height:52vh;min-height:330px;border-radius:16px;overflow:hidden;position:relative}.leaflet-container{width:100%;height:100%}
 .controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
 .stat{background:#f1f6fc;border-radius:12px;padding:10px;text-align:center}.num{font-size:20px;font-weight:800}
@@ -121,7 +121,7 @@ const SUPABASE_PUBLISHABLE_KEY='sb_publishable_LT8SCq5WtHLMrfmzrpqLjg_QK7cJiu8';
 const sb=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
 
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-window.show=id=>['routes','record','account'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+window.show=id=>{['routes','record','account'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id)); if(id==='record') setTimeout(()=>{if(map) map.invalidateSize(true)},150)};
 
 let map,marker=null,line,watch=null,startTime=null,lastPoint=null,total=0,points=[];
 function initMap(){
@@ -129,6 +129,7 @@ function initMap(){
   map=L.map('map').setView([-12.25,-38.95],13);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
   line=L.polyline([]).addTo(map);
+  setTimeout(()=>map.invalidateSize(true),100);
 }
 function hav(a,b){
   const R=6371000,lat1=a.lat*Math.PI/180,lat2=b.lat*Math.PI/180;
@@ -186,9 +187,10 @@ window.showRoute=async(id)=>{
   const {data,error}=await sb.from('routes').select('name,description,coordinates,difficulty,distance_km').eq('id',id).single();
   if(error||!data){alert('Não foi possível abrir a rota.');return;}
   show('record');initMap();
+  setTimeout(()=>map.invalidateSize(true),150);
   const pts=Array.isArray(data.coordinates)?data.coordinates:[];
   line.setLatLngs(pts.map(p=>[p.lat,p.lng]));
-  if(pts.length){map.fitBounds(line.getBounds(),{padding:[20,20]});}
+  if(pts.length){setTimeout(()=>map.fitBounds(line.getBounds(),{padding:[20,20]}),180);}
   document.getElementById('gps').textContent='🗺️ Rota selecionada: '+data.name;
   document.getElementById('details').classList.add('hidden');
 };
