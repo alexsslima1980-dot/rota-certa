@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rota Certa — Descubra, Pedale, Compartilhe</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f4f7fb;color:#172033}
+header{background:#1267c9;color:#fff;padding:22px 18px 24px;border-radius:0 0 26px 26px}
+.logo{font-size:32px;font-weight:800}.tag{font-size:17px;margin-top:6px}
+main{max-width:820px;margin:auto;padding:14px}
+.card{background:#fff;border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 4px 18px #00000012}
+nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}
+button{border:0;border-radius:12px;padding:13px 15px;font-weight:700;font-size:15px;cursor:pointer}
+nav button{background:#fff;color:#1267c9;border:1px solid #ccd8e8}
+.primary{background:#1267c9;color:#fff}.orange{background:#f28a18;color:#fff}.dark{background:#172033;color:#fff}
+input,textarea,select{width:100%;padding:13px;margin:6px 0;border:1px solid #ccd4df;border-radius:11px;font-size:15px;background:#fff}
+.hidden{display:none!important}.ok{background:#edf8ef;padding:11px;border-radius:11px}.err{background:#fff1f0;color:#b42318;padding:11px;border-radius:11px}
+.small{font-size:13px;color:#667085}.muted{color:#667085}
+#map{height:52vh;min-height:330px;border-radius:16px;overflow:hidden}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:10px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stat{background:#f1f6fc;border-radius:12px;padding:10px;text-align:center}.num{font-size:20px;font-weight:800}
+.route{border:1px solid #e0e5ec;padding:14px;border-radius:14px;margin:10px 0}
+.badge{display:inline-block;background:#fff0df;color:#b65e00;padding:5px 9px;border-radius:20px;font-size:12px;font-weight:700}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:560px){.grid2{grid-template-columns:1fr}.logo{font-size:28px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">🚴 Rota Certa</div>
+  <div class="tag">Descubra. Pedale. Compartilhe.</div>
+</header>
+
+<main>
+  <div class="card">
+    <b>Conexão</b>
+    <div id="status" class="ok">🔄 Conectando ao banco...</div>
+  </div>
+
+  <nav>
+    <button onclick="show('routes')">🔎 Rotas</button>
+    <button onclick="show('record')">📍 Gravar</button>
+    <button onclick="show('account')">👤 Conta</button>
+  </nav>
+
+  <section id="routes">
+    <div class="card">
+      <h2>🗺️ Rotas publicadas</h2>
+      <p class="muted">Encontre caminhos compartilhados por outros ciclistas.</p>
+      <button class="primary" onclick="loadRoutes()">🔄 Atualizar rotas</button>
+      <div id="list">Carregando...</div>
+    </div>
+  </section>
+
+  <section id="record" class="hidden">
+    <div class="card">
+      <h2>📍 Gravar uma rota</h2>
+      <div id="map"></div>
+      <div class="stats">
+        <div class="stat"><div class="small">Distância</div><div class="num" id="dist">0,00 km</div></div>
+        <div class="stat"><div class="small">Tempo</div><div class="num" id="time">00:00</div></div>
+        <div class="stat"><div class="small">Velocidade média</div><div class="num" id="speed">0,0</div><div class="small">km/h</div></div>
+      </div>
+      <div class="controls">
+        <button class="primary" onclick="startGPS()">▶ Iniciar gravação</button>
+        <button class="orange" onclick="stopGPS()">⏹ Finalizar</button>
+      </div>
+      <p id="gps" class="ok">Aguardando GPS.</p>
+      <p class="small">Quando você permitir a localização, o mapa acompanhará seu percurso e desenhará a linha automaticamente.</p>
+    </div>
+
+    <div id="details" class="card hidden">
+      <h2>🎉 Rota registrada!</h2>
+      <p>Agora você dá um nome e descreve o caminho. A rota fica salva no banco para outros ciclistas encontrarem.</p>
+      <input id="name" placeholder="Nome da rota">
+      <textarea id="desc" rows="4" placeholder="Descrição, cuidados, pontos de água, perigos e outras informações"></textarea>
+      <div class="grid2">
+        <select id="difficulty">
+          <option>fácil</option><option selected>moderada</option><option>difícil</option><option>muito difícil</option>
+        </select>
+        <select id="type">
+          <option>MTB</option><option>Speed</option><option>Gravel</option><option>Urbana</option><option>Cicloturismo</option>
+        </select>
+      </div>
+      <button class="primary" onclick="publish()">🚴 Publicar rota</button>
+      <div id="pub"></div>
+    </div>
+  </section>
+
+  <section id="account" class="hidden">
+    <div class="card" id="out">
+      <h2>👤 Criar conta / Entrar</h2>
+      <input id="email" type="email" placeholder="E-mail">
+      <input id="password" type="password" placeholder="Senha (mínimo 6 caracteres)">
+      <input id="person" placeholder="Seu nome de ciclista">
+      <div class="grid2">
+        <button class="primary" onclick="signup()">Criar conta</button>
+        <button onclick="login()">Entrar</button>
+      </div>
+      <div id="auth"></div>
+    </div>
+    <div class="card hidden" id="in">
+      <h2>Minha conta</h2>
+      <p>Olá, <b id="who">Ciclista</b>! 👋</p>
+      <p id="mail" class="muted"></p>
+      <button class="dark" onclick="logout()">Sair</button>
+    </div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const SUPABASE_URL='https://becxdtogjlhgnafeadjn.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_LT8SCq5WtHLMrfmzrpqLjg_QK7cJiu8';
+const sb=createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+window.show=id=>['routes','record','account'].forEach(x=>document.getElementById(x).classList.toggle('hidden',x!==id));
+
+let map,marker=null,line,watch=null,startTime=null,lastPoint=null,total=0,points=[];
+function initMap(){
+  if(map)return;
+  map=L.map('map').setView([-12.25,-38.95],13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  line=L.polyline([]).addTo(map);
+}
+function hav(a,b){
+  const R=6371000,lat1=a.lat*Math.PI/180,lat2=b.lat*Math.PI/180;
+  const dl=(b.lat-a.lat)*Math.PI/180,dg=(b.lng-a.lng)*Math.PI/180;
+  const x=Math.sin(dl/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dg/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
+}
+function fmtTime(ms){
+  let s=Math.floor(ms/1000),m=Math.floor(s/60),h=Math.floor(m/60);s%=60;m%=60;
+  return (h?String(h).padStart(2,'0')+':':'')+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function update(){
+  document.getElementById('dist').textContent=(total/1000).toFixed(2).replace('.',',')+' km';
+  if(startTime)document.getElementById('time').textContent=fmtTime(Date.now()-startTime);
+  const hrs=startTime?(Date.now()-startTime)/3600000:0;
+  document.getElementById('speed').textContent=hrs?(total/1000/hrs).toFixed(1).replace('.',','):'0,0';
+}
+setInterval(()=>{if(startTime)update()},1000);
+
+window.startGPS=()=>{
+  initMap();
+  if(watch!==null)return;
+  if(!navigator.geolocation){document.getElementById('gps').textContent='⚠️ Este navegador não disponibiliza GPS.';return;}
+  points=[];total=0;lastPoint=null;startTime=Date.now();
+  line.setLatLngs([]);if(marker){map.removeLayer(marker);marker=null}
+  document.getElementById('details').classList.add('hidden');
+  document.getElementById('gps').textContent='🟢 GPS ativo — aguardando a primeira posição...';
+  watch=navigator.geolocation.watchPosition(pos=>{
+    const p={lat:pos.coords.latitude,lng:pos.coords.longitude,t:new Date().toISOString()};
+    if(lastPoint){const d=hav(lastPoint,p);if(d>=2 && d<150)total+=d;}
+    lastPoint=p;points.push(p);line.addLatLng([p.lat,p.lng]);
+    if(!marker)marker=L.marker([p.lat,p.lng]).addTo(map).bindPopup('📍 Sua posição');
+    else marker.setLatLng([p.lat,p.lng]);
+    map.setView([p.lat,p.lng],16);update();
+    document.getElementById('gps').textContent='🟢 GPS ativo — posição recebida.';
+  },err=>{
+    document.getElementById('gps').textContent='⚠️ '+err.message+' Abra as permissões de localização do Chrome e permita o acesso.';
+  },{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
+};
+window.stopGPS=()=>{
+  if(watch!==null){navigator.geolocation.clearWatch(watch);watch=null}
+  if(!points.length){document.getElementById('gps').textContent='⚠️ Nenhum ponto GPS foi registrado.';return;}
+  document.getElementById('gps').textContent='⏹ Rota finalizada. Agora coloque o nome e publique.';
+  document.getElementById('details').classList.remove('hidden');
+  update();document.getElementById('details').scrollIntoView({behavior:'smooth'});
+};
+
+window.loadRoutes=async()=>{
+  const l=document.getElementById('list');l.textContent='Carregando...';
+  const {data,error}=await sb.from('routes').select('id,name,description,difficulty,distance_km,city,state,route_type,rating,rating_count,created_at,coordinates').eq('is_public',true).order('created_at',{ascending:false});
+  if(error){l.innerHTML='<div class="err">⚠️ '+esc(error.message)+'</div>';return;}
+  l.innerHTML=data.length?data.map(r=>`<div class="route"><span class="badge">${esc(r.difficulty||'moderada')}</span><h3>${esc(r.name)}</h3><p>📏 ${Number(r.distance_km||0).toFixed(2).replace('.',',')} km · 🚴 ${esc(r.route_type||'MTB')} · 📍 ${esc(r.city||'Feira de Santana')}</p><p>${esc(r.description||'Sem descrição.')}</p><button onclick="showRoute(${r.id})">🗺️ Ver rota</button></div>`).join(''):'<p>Nenhuma rota publicada ainda. Seja o primeiro! 🚴</p>';
+};
+window.showRoute=async(id)=>{
+  const {data,error}=await sb.from('routes').select('name,description,coordinates,difficulty,distance_km').eq('id',id).single();
+  if(error||!data){alert('Não foi possível abrir a rota.');return;}
+  show('record');initMap();
+  const pts=Array.isArray(data.coordinates)?data.coordinates:[];
+  line.setLatLngs(pts.map(p=>[p.lat,p.lng]));
+  if(pts.length){map.fitBounds(line.getBounds(),{padding:[20,20]});}
+  document.getElementById('gps').textContent='🗺️ Rota selecionada: '+data.name;
+  document.getElementById('details').classList.add('hidden');
+};
+
+async function ensureProfile(user,nameFallback='Ciclista'){
+  const {data:p}=await sb.from('profiles').select('name').eq('id',user.id).maybeSingle();
+  if(!p) await sb.from('profiles').insert({id:user.id,name:nameFallback,city:'Feira de Santana'});
+  return p?.name||nameFallback;
+}
+window.signup=async()=>{
+  const email=document.getElementById('email').value.trim(),password=document.getElementById('password').value,name=document.getElementById('person').value.trim()||'Ciclista';
+  const msg=document.getElementById('auth');
+  if(password.length<6){msg.innerHTML='<div class="err">⚠️ A senha precisa ter pelo menos 6 caracteres.</div>';return;}
+  const {data,error}=await sb.auth.signUp({email,password});
+  if(error){msg.innerHTML='<div class="err">⚠️ '+esc(error.message)+'</div>';return;}
+  if(data.session && data.user) await ensureProfile(data.user,name);
+  msg.innerHTML='<div class="ok">✅ Conta criada. Se o Supabase pedir confirmação, confirme o e-mail e depois entre pelo botão <b>Entrar</b>.</div>';
+  refresh();
+};
+window.login=async()=>{
+  const msg=document.getElementById('auth');
+  const {data,error}=await sb.auth.signInWithPassword({email:document.getElementById('email').value.trim(),password:document.getElementById('password').value});
+  if(error){msg.innerHTML='<div class="err">⚠️ '+esc(error.message)+'</div>';return;}
+  await ensureProfile(data.user,document.getElementById('person').value.trim()||'Ciclista');
+  msg.innerHTML='<div class="ok">✅ Login realizado.</div>';refresh();
+};
+window.logout=async()=>{await sb.auth.signOut();refresh()};
+
+async function refresh(){
+  const {data:{user}}=await sb.auth.getUser();
+  document.getElementById('out').classList.toggle('hidden',!!user);
+  document.getElementById('in').classList.toggle('hidden',!user);
+  if(user){
+    document.getElementById('mail').textContent=user.email||'';
+    const {data:p}=await sb.from('profiles').select('name').eq('id',user.id).maybeSingle();
+    document.getElementById('who').textContent=p?.name||'Ciclista';
+  }
+}
+window.publish=async()=>{
+  const msg=document.getElementById('pub');
+  const {data:{user}}=await sb.auth.getUser();
+  if(!user){msg.innerHTML='<div class="err">⚠️ Entre na sua conta antes de publicar a rota.</div>';show('account');return;}
+  const name=document.getElementById('name').value.trim();
+  if(!name){msg.innerHTML='<div class="err">⚠️ Digite um nome para a rota.</div>';return;}
+  if(points.length<2){msg.innerHTML='<div class="err">⚠️ Grave pelo menos dois pontos GPS.</div>';return;}
+  const elapsed=startTime?Math.round((Date.now()-startTime)/60000):0;
+  const {error}=await sb.from('routes').insert({
+    creator_id:user.id,name,description:document.getElementById('desc').value.trim(),
+    city:'Feira de Santana',state:'BA',route_type:document.getElementById('type').value,
+    difficulty:document.getElementById('difficulty').value,
+    distance_km:Number((total/1000).toFixed(2)),estimated_time_minutes:elapsed,
+    coordinates:points,is_public:true
+  });
+  msg.innerHTML=error?'<div class="err">⚠️ Erro ao publicar: '+esc(error.message)+'</div>':'<div class="ok">🎉 Rota publicada com sucesso no banco de dados!</div>';
+  if(!error)loadRoutes();
+};
+sb.auth.onAuthStateChange(()=>refresh());
+(async()=>{await testConnection();await loadRoutes();await refresh();})();
+async function testConnection(){
+  const {error}=await sb.from('routes').select('id').limit(1);
+  document.getElementById('status').innerHTML=error?'<span class="err">⚠️ '+esc(error.message)+'</span>':'<span class="ok">✅ Banco conectado ao Rota Certa!</span>';
+}
+</script>
+</body>
+</html>
